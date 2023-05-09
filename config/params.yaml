@@ -1,12 +1,12 @@
 # Parameter List
-icp_method: standard  # standard, gicp
+icp_method: point2plane  # point2point, point2plane
 icp_max_corres_dist: 0.5  # meter
 icp_max_iterations: 20
 icp_translation_epsilon: 0.000001  # square meter
 icp_rotation_epsilon: 0.02  # degree
 
 downsample: false
-downsample_resolution: 0.1
+downsample_resolution: 0.1  # meter
 
 estimate_normal: true
 normal_est_neighbors: 20  # number of knn neighbors

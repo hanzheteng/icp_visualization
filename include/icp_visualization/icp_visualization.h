@@ -40,9 +40,11 @@ class ICPVisualization {
  protected:
   void DownSampleVoxelGrids(const PointCloudPtr& cloud);
   void EstimateNormals(const PointCloudPtr& cloud);
+  void CopyPointCloud(const PointCloudPtr& cloud_in, const std::vector<int>& indices, PointCloudPtr& cloud_out);
 
-  Eigen::Matrix4d StandardICP(const PointCloudPtr& source, const PointCloudPtr& target);
-  Eigen::Matrix4d GaussNewton(const PointCloudPtr& source, const PointCloudPtr& target);
+  Eigen::Matrix4d Point2PointICP(const PointCloudPtr& source, const PointCloudPtr& target);
+  Eigen::Matrix4d Point2PlaneICP(const PointCloudPtr& source, const PointCloudPtr& target);
+  Eigen::Matrix4d GaussNewton(const PointCloudPtr& source, const PointCloudPtr& target, Eigen::VectorXd& Residual);
   Eigen::Matrix4d TransformVector6dToMatrix4d(const Eigen::Vector6d& input);
 
  private:

@@ -5,6 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /SourceCloud1
         - /PointCloudCorrespondence1
       Splitter Ratio: 0.5484764575958252
     Tree Height: 788
@@ -61,12 +62,12 @@ Visualization Manager:
       Channel Name: intensity
       Class: rviz/PointCloud2
       Color: 255; 255; 255
-      Color Transformer: FlatColor
+      Color Transformer: Intensity
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Min Color: 0; 0; 0
+      Max Color: 239; 41; 41
+      Min Color: 255; 255; 255
       Name: SourceCloud
       Position Transformer: XYZ
       Queue Size: 10
@@ -77,7 +78,7 @@ Visualization Manager:
       Topic: /source_cloud
       Unreliable: false
       Use Fixed Frame: true
-      Use rainbow: true
+      Use rainbow: false
       Value: true
     - Alpha: 1
       Arrow Color: 255; 255; 255
@@ -149,7 +150,7 @@ Visualization Manager:
       Gradient Color:
         Line End Color: 102; 204; 255
         Value: false
-      Line Color: 239; 41; 41
+      Line Color: 25; 255; 0
       Max Line Length: 0
       Min Line Length: 0
       Name: PointCloudCorrespondence
@@ -222,4 +223,4 @@ Window Geometry:
     collapsed: false
   Width: 1665
   X: 190
-  Y: 120
+  Y: 83

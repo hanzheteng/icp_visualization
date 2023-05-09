@@ -42,10 +42,10 @@ ICPVisualization::ICPVisualization(ros::NodeHandle& nh)
 
   // registration
   std::string icp_method = params_["icp_method"].as<std::string>();
-  if (icp_method == "standard")
-    transformation_ = StandardICP(source_cloud_, target_cloud_);
-  else if (icp_method == "gicp")
-    transformation_ = StandardICP(source_cloud_, target_cloud_);
+  if (icp_method == "point2point")
+    transformation_ = Point2PointICP(source_cloud_, target_cloud_);
+  else if (icp_method == "point2plane")
+    transformation_ = Point2PlaneICP(source_cloud_, target_cloud_);
   else
     PCL_ERROR("no registration method is selected");
   std::cout << "Estimated transformation " << std::endl << transformation_ << std::endl;
@@ -69,9 +69,27 @@ void ICPVisualization::EstimateNormals(const PointCloudPtr& cloud) {
   std::cout << "Computed " << cloud->size() << " normals\n";
 }
 
+void ICPVisualization::CopyPointCloud(const PointCloudPtr& cloud_in, const std::vector<int>& indices,
+                                      PointCloudPtr& cloud_out) {
+  // allocate enough space and copy the basics
+  cloud_out->points.resize(indices.size());
+  cloud_out->header = cloud_in->header;
+  cloud_out->width = static_cast<uint32_t>(indices.size());
+  cloud_out->height = 1;
+  cloud_out->is_dense = cloud_in->is_dense;
+  cloud_out->sensor_orientation_ = cloud_in->sensor_orientation_;
+  cloud_out->sensor_origin_ = cloud_in->sensor_origin_;
+
+  // iterate over each point
+  for (size_t i = 0; i < indices.size(); ++i) {
+    cloud_out->points[i] = cloud_in->points[indices[i]];
+  }
+}
+
+// Standard point-to-point ICP registration using SVD (closed-form solution; no need to run optimization)
+// exactly the same behavior and performance as in PCL
 // refer to pcl/registration/impl/icp.hpp and transformation_estimation_svd.hpp
-// exactly the same behavior and performance as using PCLICP()
-Eigen::Matrix4d ICPVisualization::StandardICP(const PointCloudPtr& source, const PointCloudPtr& target) {
+Eigen::Matrix4d ICPVisualization::Point2PointICP(const PointCloudPtr& source, const PointCloudPtr& target) {
   // initialization
   int max_iterations = params_["icp_max_iterations"].as<int>();
   double max_distance = params_["icp_max_corres_dist"].as<double>();
@@ -90,8 +108,8 @@ Eigen::Matrix4d ICPVisualization::StandardICP(const PointCloudPtr& source, const
 
   // prepare visualization data
   correspondence_rviz_plugin::PointCloudCorrespondence correspondence_msg;
-  sensor_msgs::PointCloud2 cloud_source, cloud_target;
-  std::vector<int32_t> index_source, index_target;
+  sensor_msgs::PointCloud2 cloud_source;
+  sensor_msgs::PointCloud2 cloud_target;
   pcl::toROSMsg(*target, cloud_target);
   cloud_target.header.frame_id = "map";
   correspondence_msg.cloud_target = cloud_target;
@@ -103,51 +121,48 @@ Eigen::Matrix4d ICPVisualization::StandardICP(const PointCloudPtr& source, const
     pcl::transformPointCloud<PointT>(*source, *source_trans, final_transformation);
 
     // find correspondences in target
-    std::vector<std::pair<int, int>> correspondences;
+    std::vector<int> indices_src;
+    std::vector<int> indices_tgt;
     for (int i = 0; i < cloud_size; ++i) {
       kdtree->nearestKSearch(source_trans->points[i], 1, indices, sq_dist);
       if (sq_dist[0] > max_distance * max_distance)  // skip if too far
         continue;
-      correspondences.push_back({i, indices[0]});
-      index_source.push_back(i);
-      index_target.push_back(indices[0]);
+      indices_src.push_back(i);
+      indices_tgt.push_back(indices[0]);
     }
 
     // convert to Eigen format
-    int idx = 0;
-    Eigen::Matrix3Xd cloud_src(3, correspondences.size());
-    Eigen::Matrix3Xd cloud_tgt(3, correspondences.size());
-    for (const auto& corres : correspondences) {
-      cloud_src(0, idx) = source_trans->points[corres.first].x;
-      cloud_src(1, idx) = source_trans->points[corres.first].y;
-      cloud_src(2, idx) = source_trans->points[corres.first].z;
-      cloud_tgt(0, idx) = target->points[corres.second].x;
-      cloud_tgt(1, idx) = target->points[corres.second].y;
-      cloud_tgt(2, idx) = target->points[corres.second].z;
-      ++idx;
+    int indices_size = static_cast<int>(indices_src.size());
+    Eigen::Matrix3Xd cloud_src(3, indices_size);
+    Eigen::Matrix3Xd cloud_tgt(3, indices_size);
+    for (int i = 0; i < indices_size; ++i) {
+      cloud_src(0, i) = source_trans->points[indices_src[i]].x;
+      cloud_src(1, i) = source_trans->points[indices_src[i]].y;
+      cloud_src(2, i) = source_trans->points[indices_src[i]].z;
+      cloud_tgt(0, i) = target->points[indices_tgt[i]].x;
+      cloud_tgt(1, i) = target->points[indices_tgt[i]].y;
+      cloud_tgt(2, i) = target->points[indices_tgt[i]].z;
     }
-
-    // prepare visualization data
-    rate.sleep();
-    if (!ros::ok()) break;
-    correspondence_msg.index_source = index_source;
-    correspondence_msg.index_target = index_target;
-    pcl::toROSMsg(*source_trans, cloud_source);
-    cloud_source.header.frame_id = "map";
-    correspondence_msg.cloud_source = cloud_source;
-    pub_correspondence_.publish(correspondence_msg);
-    pub_source_cloud_.publish(cloud_source);
-    pub_target_cloud_.publish(cloud_target);
-    index_source.clear();
-    index_target.clear();
 
     // skip a few steps (such as sanity checks) here for simplicity
 
     // solve using Umeyama's algorithm (SVD)
     Eigen::Matrix4d transformation = Eigen::umeyama<Eigen::Matrix3Xd, Eigen::Matrix3Xd>(cloud_src, cloud_tgt, false);
     final_transformation = transformation * final_transformation;
-    std::cout << "it = " << t << "; cloud size = " << cloud_size << "; idx = " << idx << std::endl;
-    std::cout << "current transformation estimation" << std::endl << final_transformation << std::endl;
+    std::cout << "iter = " << t << "; cloud size = " << cloud_size << "; indices_size = " << indices_size << std::endl;
+
+    // prepare visualization data
+    for (int i = 0; i < cloud_size; ++i) {
+      source_trans->points[i].intensity = 0;
+    }
+    correspondence_msg.index_source = indices_src;
+    correspondence_msg.index_target = indices_tgt;
+    pcl::toROSMsg(*source_trans, cloud_source);
+    cloud_source.header.frame_id = "map";
+    correspondence_msg.cloud_source = cloud_source;
+    pub_correspondence_.publish(correspondence_msg);
+    pub_source_cloud_.publish(cloud_source);
+    pub_target_cloud_.publish(cloud_target);
 
     // check convergence
     double cos_angle = 0.5 * (transformation.coeff(0, 0) + transformation.coeff(1, 1) + transformation.coeff(2, 2) - 1);
@@ -158,15 +173,107 @@ Eigen::Matrix4d ICPVisualization::StandardICP(const PointCloudPtr& source, const
       std::cout << "converged!" << std::endl;
       break;
     }
+    if (!ros::ok()) break;
+    rate.sleep();
   }
 
   return final_transformation;
 }
 
-Eigen::Matrix4d ICPVisualization::GaussNewton(const PointCloudPtr& source, const PointCloudPtr& target) {
+// Point-to-plane ICP registration by Gauss-Newton optimization
+Eigen::Matrix4d ICPVisualization::Point2PlaneICP(const PointCloudPtr& source, const PointCloudPtr& target) {
+  // initialization
+  int max_iterations = params_["icp_max_iterations"].as<int>();
+  double max_distance = params_["icp_max_corres_dist"].as<double>();
+  double translation_epsilon = params_["icp_translation_epsilon"].as<double>();
+  double rotation_epsilon = 1.0 - params_["icp_rotation_epsilon"].as<double>();
+  int cloud_size = static_cast<int>(source->size());
+  Eigen::Matrix4d final_transformation = Eigen::Matrix4d::Identity();
+  pcl::PointCloud<PointT>::Ptr source_trans(new pcl::PointCloud<PointT>);
+  ros::Rate rate(1);
+
+  // build K-d tree for target cloud
+  pcl::search::KdTree<PointT>::Ptr kdtree(new pcl::search::KdTree<PointT>);
+  kdtree->setInputCloud(target);
+  std::vector<int> indices(1);    // for nearestKSearch
+  std::vector<float> sq_dist(1);  // for nearestKSearch
+
+  // prepare visualization data
+  correspondence_rviz_plugin::PointCloudCorrespondence correspondence_msg;
+  sensor_msgs::PointCloud2 cloud_source;
+  sensor_msgs::PointCloud2 cloud_target;
+  pcl::toROSMsg(*target, cloud_target);
+  cloud_target.header.frame_id = "map";
+  correspondence_msg.cloud_target = cloud_target;
+  correspondence_msg.header.frame_id = "map";
+
+  // repeat until convergence
+  for (int t = 0; t < max_iterations; ++t) {
+    // transform source using estimated transformation
+    pcl::transformPointCloud<PointT>(*source, *source_trans, final_transformation);
+
+    // find correspondences in target
+    std::vector<int> indices_src;
+    std::vector<int> indices_tgt;
+    for (int i = 0; i < cloud_size; ++i) {
+      kdtree->nearestKSearch(source_trans->points[i], 1, indices, sq_dist);
+      if (sq_dist[0] > max_distance * max_distance)  // skip if too far
+        continue;
+      indices_src.push_back(i);
+      indices_tgt.push_back(indices[0]);
+    }
+
+    // copy selected correspondences to new point clouds
+    pcl::PointCloud<PointT>::Ptr cloud_src(new pcl::PointCloud<PointT>);
+    pcl::PointCloud<PointT>::Ptr cloud_tgt(new pcl::PointCloud<PointT>);
+    CopyPointCloud(source_trans, indices_src, cloud_src);
+    CopyPointCloud(target, indices_tgt, cloud_tgt);
+
+    // solve transformation using Gauss-Newton optimization
+    int indices_size = static_cast<int>(indices_src.size());
+    Eigen::VectorXd Residual(indices_size);
+    Eigen::Matrix4d transformation = GaussNewton(cloud_src, cloud_tgt, Residual);
+    final_transformation = transformation * final_transformation;
+    std::cout << "iter = " << t << "; cloud size = " << cloud_size << "; indices_size = " << indices_size << std::endl;
+
+    // prepare visualization data
+    for (int i = 0; i < cloud_size; ++i) {
+      source_trans->points[i].intensity = 0;
+    }
+    for (int i = 0; i < indices_size; ++i) {
+      source_trans->points[indices_src[i]].intensity = std::abs(Residual.cast<float>()[i]);
+    }
+    correspondence_msg.index_source = indices_src;
+    correspondence_msg.index_target = indices_tgt;
+    pcl::toROSMsg(*source_trans, cloud_source);
+    cloud_source.header.frame_id = "map";
+    correspondence_msg.cloud_source = cloud_source;
+    pub_correspondence_.publish(correspondence_msg);
+    pub_source_cloud_.publish(cloud_source);
+    pub_target_cloud_.publish(cloud_target);
+
+    // check convergence
+    double cos_angle = 0.5 * (transformation.coeff(0, 0) + transformation.coeff(1, 1) + transformation.coeff(2, 2) - 1);
+    double translation_sqr = transformation.coeff(0, 3) * transformation.coeff(0, 3) +
+                             transformation.coeff(1, 3) * transformation.coeff(1, 3) +
+                             transformation.coeff(2, 3) * transformation.coeff(2, 3);
+    if (cos_angle >= rotation_epsilon && translation_sqr <= translation_epsilon) {
+      std::cout << "converged!" << std::endl;
+      break;
+    }
+    if (!ros::ok()) break;
+    rate.sleep();
+  }
+
+  return final_transformation;
+}
+
+Eigen::Matrix4d ICPVisualization::GaussNewton(const PointCloudPtr& source, const PointCloudPtr& target,
+                                              Eigen::VectorXd& Residual) {
+  // math formulation according to the paper: Colored Point Cloud Registration Revisited, ICCV 2017
   int size = static_cast<int>(source->size());
   Eigen::Matrix6Xd Jacobian(6, size);  // alpha, beta, gamma, a, b, c as in the linearized transformation matrix
-  Eigen::VectorXd Residual(size);      // see Eq. 20 in the paper
+  // Eigen::VectorXd Residual(size);      // see Eq. 20 in the paper
 
   for (int i = 0; i < size; ++i) {
     const Eigen::Vector3d q = source->points[i].getVector3fMap().cast<double>();
