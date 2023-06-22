@@ -20,6 +20,8 @@
 #include <pcl_ros/point_cloud.h>
 #include <yaml-cpp/yaml.h>
 
+#include "fast_gicp/fast_gicp.hpp"
+
 namespace Eigen {
 typedef Eigen::Matrix<double, 6, 6> Matrix6d;
 typedef Eigen::Matrix<double, 6, 1> Vector6d;
@@ -46,6 +48,7 @@ class ICPVisualization {
   Eigen::Matrix4d Point2PlaneICP(const PointCloudPtr& source, const PointCloudPtr& target);
   Eigen::Matrix4d GaussNewton(const PointCloudPtr& source, const PointCloudPtr& target, Eigen::VectorXd& Residual);
   Eigen::Matrix4d TransformVector6dToMatrix4d(const Eigen::Vector6d& input);
+  Eigen::Matrix4d FastGICP(const PointCloudPtr& source, const PointCloudPtr& target);
 
  private:
   ros::NodeHandle nh_;
