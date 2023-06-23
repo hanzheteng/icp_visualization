@@ -20,6 +20,7 @@
 #include <pcl_ros/point_cloud.h>
 #include <yaml-cpp/yaml.h>
 
+#include <correspondence_rviz_plugin/PointCloudCorrespondence.h>
 #include "fast_gicp/fast_gicp.hpp"
 
 namespace Eigen {
@@ -43,6 +44,11 @@ class ICPVisualization {
   void DownSampleVoxelGrids(const PointCloudPtr& cloud);
   void EstimateNormals(const PointCloudPtr& cloud);
   void CopyPointCloud(const PointCloudPtr& cloud_in, const std::vector<int>& indices, PointCloudPtr& cloud_out);
+
+  void PublishVisualization(const PointCloudPtr& source, const PointCloudPtr& target, 
+                            std::vector<std::vector<double>>& errors_per_iter,
+                            std::vector<std::vector<int>>& correspondences_per_iter,
+                            std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>>& transformation_per_iter);
 
   Eigen::Matrix4d Point2PointICP(const PointCloudPtr& source, const PointCloudPtr& target);
   Eigen::Matrix4d Point2PlaneICP(const PointCloudPtr& source, const PointCloudPtr& target);

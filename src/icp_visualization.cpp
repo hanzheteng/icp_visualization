@@ -1,7 +1,6 @@
 // Visualization for ICP-like algorithms
 // Hanzhe Teng, May 2023
 
-#include <correspondence_rviz_plugin/PointCloudCorrespondence.h>
 #include "icp_visualization/icp_visualization.h"
 
 namespace icp_vis {
@@ -316,7 +315,60 @@ Eigen::Matrix4d ICPVisualization::FastGICP(const PointCloudPtr& source, const Po
   gicp.setInputSource(source);
   gicp.setInputTarget(target);
   gicp.align(unused_output);
+
+  std::vector<std::vector<double>> errors_per_iter;
+  std::vector<std::vector<int>> correspondences_per_iter;
+  std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>> transformation_per_iter;
+  gicp.getDataPerIteration(errors_per_iter, correspondences_per_iter, transformation_per_iter);
+  PublishVisualization(source, target, errors_per_iter, correspondences_per_iter, transformation_per_iter);
+
   return gicp.getFinalTransformation().cast<double>();;
+}
+
+void ICPVisualization::PublishVisualization(const PointCloudPtr& source, const PointCloudPtr& target, 
+                                            std::vector<std::vector<double>>& errors_per_iter,
+                                            std::vector<std::vector<int>>& correspondences_per_iter,
+                                            std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>>& transformation_per_iter) {
+  int nr_iterations = transformation_per_iter.size();
+  pcl::PointCloud<PointT>::Ptr source_trans(new pcl::PointCloud<PointT>);
+  ros::Rate rate(1);
+
+  correspondence_rviz_plugin::PointCloudCorrespondence correspondence_msg;
+  sensor_msgs::PointCloud2 cloud_source;
+  sensor_msgs::PointCloud2 cloud_target;
+  pcl::toROSMsg(*target, cloud_target);
+  cloud_target.header.frame_id = "map";
+  correspondence_msg.cloud_target = cloud_target;
+  correspondence_msg.header.frame_id = "map";
+
+  for (int t = 0; t < nr_iterations; ++t) {
+    pcl::transformPointCloud<PointT>(*source, *source_trans, transformation_per_iter[t]);
+
+    for (int i = 0; i < source_trans->size(); ++i) {
+      source_trans->points[i].intensity = errors_per_iter[t][i];
+    }
+
+    std::vector<int> indices_src;
+    std::vector<int> indices_tgt;
+    for (int i = 0; i < source_trans->size(); ++i) {
+      if (correspondences_per_iter[t][i] < 0)
+        continue;
+      indices_src.push_back(i);
+      indices_tgt.push_back(correspondences_per_iter[t][i]);
+    }
+    correspondence_msg.index_source = indices_src;
+    correspondence_msg.index_target = indices_tgt;
+    pcl::toROSMsg(*source_trans, cloud_source);
+    cloud_source.header.frame_id = "map";
+    correspondence_msg.cloud_source = cloud_source;
+    pub_correspondence_.publish(correspondence_msg);
+    pub_source_cloud_.publish(cloud_source);
+    pub_target_cloud_.publish(cloud_target);
+
+    std::cout << "publishing iteration t = " << t << std::endl;
+    if (!ros::ok()) break;
+    rate.sleep();
+  }
 }
 
 }  // namespace icp_vis

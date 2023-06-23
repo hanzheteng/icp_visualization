@@ -60,6 +60,14 @@ public:
   virtual void clearSource() {}
   virtual void clearTarget() {}
 
+  inline void getDataPerIteration(std::vector<std::vector<double>>& errors_per_iteration,
+                                  std::vector<std::vector<int>>& correspondences_per_iteration,
+                                  std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>>& transformation_per_iteration) {
+    errors_per_iteration = errors_per_iteration_;
+    correspondences_per_iteration = correspondences_per_iteration_;
+    transformation_per_iteration = transformation_per_iteration_;
+  }
+
 protected:
   virtual void computeTransformation(PointCloudSource& output, const Matrix4& guess) override;
 
@@ -72,6 +80,9 @@ protected:
   bool step_gn(Eigen::Isometry3d& x0, Eigen::Isometry3d& delta);
   bool step_lm(Eigen::Isometry3d& x0, Eigen::Isometry3d& delta);
 
+  virtual const std::vector<double> get_errors() const = 0;
+  virtual const std::vector<int> get_correspondences() const = 0;
+
 protected:
   double rotation_epsilon_;
 
@@ -82,6 +93,10 @@ protected:
   bool lm_debug_print_;
 
   Eigen::Matrix<double, 6, 6> final_hessian_;
+
+  std::vector<std::vector<double>> errors_per_iteration_;
+  std::vector<std::vector<int>> correspondences_per_iteration_;
+  std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>> transformation_per_iteration_;
 };
 }  // namespace fast_gicp
 

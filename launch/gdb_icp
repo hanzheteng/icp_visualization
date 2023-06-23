@@ -1,0 +1,12 @@
+<launch>
+
+    <arg name="target" default="campus_01"/>
+    <arg name="source" default="campus_02"/>
+
+    <param name="/param" value="$(find icp_visualization)/config/params.yaml"/>
+    <param name="/source_cloud" value="$(find icp_visualization)/data/$(arg source).pcd"/>
+    <param name="/target_cloud" value="$(find icp_visualization)/data/$(arg target).pcd"/>
+
+    <node pkg="icp_visualization" type="icp_visualization" name="icp_visualization" output="screen" launch-prefix="gdb -ex run --args" />
+
+</launch>

@@ -82,6 +82,10 @@ protected:
   template<typename PointT>
   bool calculate_covariances(const typename pcl::PointCloud<PointT>::ConstPtr& cloud, pcl::search::KdTree<PointT>& kdtree, std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>>& covariances);
 
+  inline const std::vector<double> get_errors() const { return errors_; }
+
+  inline const std::vector<int> get_correspondences() const { return correspondences_; }
+
 protected:
   int num_threads_;
   int k_correspondences_;
@@ -95,6 +99,7 @@ protected:
   std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>> target_covs_;
 
   std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>> mahalanobis_;
+  std::vector<double> errors_;
 
   std::vector<int> correspondences_;
   std::vector<float> sq_distances_;

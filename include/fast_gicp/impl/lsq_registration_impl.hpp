@@ -70,7 +70,10 @@ void LsqRegistration<PointTarget, PointSource>::computeTransformation(PointCloud
       std::cerr << "lm not converged!!" << std::endl;
       break;
     }
-
+    errors_per_iteration_.push_back(get_errors());
+    correspondences_per_iteration_.push_back(get_correspondences());
+    transformation_per_iteration_.push_back(x0.matrix());
+  
     converged_ = is_converged(delta);
   }
 

@@ -156,6 +156,7 @@ double FastGICP<PointSource, PointTarget>::linearize(const Eigen::Isometry3d& tr
   update_correspondences(trans);
 
   double sum_errors = 0.0;
+  errors_.resize(input_->size());
   std::vector<Eigen::Matrix<double, 6, 6>, Eigen::aligned_allocator<Eigen::Matrix<double, 6, 6>>> Hs(num_threads_);
   std::vector<Eigen::Matrix<double, 6, 1>, Eigen::aligned_allocator<Eigen::Matrix<double, 6, 1>>> bs(num_threads_);
   for (int i = 0; i < num_threads_; i++) {
@@ -167,6 +168,7 @@ double FastGICP<PointSource, PointTarget>::linearize(const Eigen::Isometry3d& tr
   for (int i = 0; i < input_->size(); i++) {
     int target_index = correspondences_[i];
     if (target_index < 0) {
+      errors_[i] = 0.0;
       continue;
     }
 
@@ -179,7 +181,8 @@ double FastGICP<PointSource, PointTarget>::linearize(const Eigen::Isometry3d& tr
     const Eigen::Vector4d transed_mean_A = trans * mean_A;
     const Eigen::Vector4d error = mean_B - transed_mean_A;
 
-    sum_errors += error.transpose() * mahalanobis_[i] * error;
+    errors_[i] = error.transpose() * mahalanobis_[i] * error;
+    sum_errors += errors_[i];
 
     if (H == nullptr || b == nullptr) {
       continue;
