@@ -47,6 +47,8 @@ ICPVisualization::ICPVisualization(ros::NodeHandle& nh)
     transformation_ = Point2PlaneICP(source_cloud_, target_cloud_);
   else if (icp_method == "fast_gicp")
     transformation_ = FastGICP(source_cloud_, target_cloud_);
+  else if (icp_method == "locus_gicp")
+    transformation_ = LocusGICP(source_cloud_, target_cloud_);
   else
     PCL_ERROR("no registration method is selected");
   std::cout << "Estimated transformation " << std::endl << transformation_ << std::endl;
@@ -322,6 +324,24 @@ Eigen::Matrix4d ICPVisualization::FastGICP(const PointCloudPtr& source, const Po
   gicp.getDataPerIteration(errors_per_iter, correspondences_per_iter, transformation_per_iter);
   PublishVisualization(source, target, errors_per_iter, correspondences_per_iter, transformation_per_iter);
 
+  return gicp.getFinalTransformation().cast<double>();;
+}
+
+Eigen::Matrix4d ICPVisualization::LocusGICP(const PointCloudPtr& source, const PointCloudPtr& target) {
+  PointCloudT unused_output;
+  pcl::MultithreadedGeneralizedIterativeClosestPoint<PointT, PointT> gicp;
+  gicp.setMaximumIterations(params_["icp_max_iterations"].as<int>());
+  gicp.setMaxCorrespondenceDistance(params_["icp_max_corres_dist"].as<float>());
+  gicp.setTransformationEpsilon(params_["icp_translation_epsilon"].as<float>());
+  // gicp.setEuclideanFitnessEpsilon(params_["Euclidean_fitness_epsilon"].as<float>());
+  gicp.setCorrespondenceRandomness(params_["normal_est_neighbors"].as<int>());
+  gicp.setNumThreads(1);
+  gicp.enableTimingOutput(false);
+  gicp.RecomputeTargetCovariance(true);
+  gicp.RecomputeSourceCovariance(true);
+  gicp.setInputSource(source);
+  gicp.setInputTarget(target);
+  gicp.align(unused_output);
   return gicp.getFinalTransformation().cast<double>();;
 }
 

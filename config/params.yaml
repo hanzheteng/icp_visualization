@@ -1,5 +1,5 @@
 # Parameters for ICP Visualization project
-icp_method: fast_gicp  # point2point, point2plane, fast_gicp
+icp_method: locus_gicp  # point2point, point2plane, fast_gicp, locus_gicp
 icp_max_corres_dist: 0.5  # meter
 icp_max_iterations: 20
 icp_translation_epsilon: 0.000001  # square meter
