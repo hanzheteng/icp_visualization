@@ -342,6 +342,13 @@ Eigen::Matrix4d ICPVisualization::LocusGICP(const PointCloudPtr& source, const P
   gicp.setInputSource(source);
   gicp.setInputTarget(target);
   gicp.align(unused_output);
+
+  std::vector<std::vector<double>> errors_per_iter;
+  std::vector<std::vector<int>> correspondences_per_iter;
+  std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>> transformation_per_iter;
+  gicp.getDataPerIteration(errors_per_iter, correspondences_per_iter, transformation_per_iter);
+  PublishVisualization(source, target, errors_per_iter, correspondences_per_iter, transformation_per_iter);
+
   return gicp.getFinalTransformation().cast<double>();;
 }
 

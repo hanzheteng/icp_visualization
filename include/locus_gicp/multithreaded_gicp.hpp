@@ -345,6 +345,7 @@ pcl::MultithreadedGeneralizedIterativeClosestPoint<PointSource, PointTarget>::Op
   g.setZero();
   Eigen::Matrix3d R = Eigen::Matrix3d::Zero();
   const int m = static_cast<const int>(gicp_->tmp_idx_src_->size());
+  std::vector<double> errors_for_vis(static_cast<int>(gicp_->tmp_src_->size()));
   for (int i = 0; i < m; ++i) {
     // The last coordinate, p_src[3] is guaranteed to be set to 1.0 in
     // registration.hpp
@@ -359,6 +360,7 @@ pcl::MultithreadedGeneralizedIterativeClosestPoint<PointSource, PointTarget>::Op
     Eigen::Vector3d temp(gicp_->mahalanobis((*gicp_->tmp_idx_src_)[i]) * res);
     // Increment total error
     f += double(res.transpose() * temp);
+    errors_for_vis[(*gicp_->tmp_idx_src_)[i]] = double(res.transpose() * temp) / double(m);  // save for visualization
     // Increment translation gradient
     // g.head<3> ()+= 2*M*res/num_matches (we postpone 2/num_matches after the
     // loop closes)
@@ -372,6 +374,9 @@ pcl::MultithreadedGeneralizedIterativeClosestPoint<PointSource, PointTarget>::Op
   g.head<3>() *= double(2.0 / m);
   R *= 2.0 / m;
   gicp_->computeRDerivative(x, R, g);
+  if (gicp_->errors_per_iteration_.size() == gicp_->nr_iterations_) {
+    gicp_->errors_per_iteration_.push_back(errors_for_vis);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -425,6 +430,7 @@ inline void pcl::MultithreadedGeneralizedIterativeClosestPoint<PointSource, Poin
       }
     }
 
+    std::vector<int> correspondences_for_vis(N);
     const Eigen::Matrix3d R = transform_R.topLeftCorner<3, 3>();
     int failure = 0;
     auto start_lookups = std::chrono::steady_clock::now();
@@ -457,12 +463,15 @@ inline void pcl::MultithreadedGeneralizedIterativeClosestPoint<PointSource, Poin
         Eigen::Matrix3d temp = M * R.transpose();
         temp += C2;
         // M = temp^-1
-        M = temp.inverse();
+        M = temp.inverse();  // temp = R * C1 * R.transpose() + C2
 
         source_indices[i] = static_cast<int>(i);
         target_indices[i] = nn_indices[0];
       }
+      // save data for visualization
+      correspondences_for_vis[i] = nn_dists[0] < dist_threshold ? nn_indices[0] : -1;
     }
+    correspondences_per_iteration_.push_back(correspondences_for_vis);
     auto end_lookups = std::chrono::steady_clock::now();
 
     // There used to be a return statement inside of the loop that was
@@ -484,6 +493,7 @@ inline void pcl::MultithreadedGeneralizedIterativeClosestPoint<PointSource, Poin
     auto start_optimization = std::chrono::steady_clock::now();
     try {
       rigid_transformation_estimation_(output, source_indices, *target_, target_indices, transformation_);
+      transformation_per_iteration_.push_back(transformation_.template cast<double>());  // save data for visualization
       /* compute the delta from this iteration */
       delta = 0.;
       for (int k = 0; k < 4; k++) {

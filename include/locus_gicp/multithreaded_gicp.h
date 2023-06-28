@@ -256,6 +256,19 @@ class MultithreadedGeneralizedIterativeClosestPoint
   void RecomputeTargetCovariance(bool recalculate) { recompute_target_cov_ = recalculate; }
   void RecomputeSourceCovariance(bool recalculate) { recompute_source_cov_ = recalculate; }
 
+  inline void getDataPerIteration(std::vector<std::vector<double>>& errors_per_iteration,
+                                  std::vector<std::vector<int>>& correspondences_per_iteration,
+                                  std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>>& transformation_per_iteration) {
+    errors_per_iteration = errors_per_iteration_;
+    correspondences_per_iteration = correspondences_per_iteration_;
+    transformation_per_iteration = transformation_per_iteration_;
+    if (errors_per_iteration_.size() != transformation_per_iteration_.size()) {
+      ROS_ERROR("Visualization Data Collection Error in GICP Algorithm");
+      ROS_WARN_STREAM("transformation: number of iterations = " << transformation_per_iteration_.size());
+      ROS_WARN_STREAM("residuals/errors: number of iterations = " << errors_per_iteration_.size());
+    }
+  }
+
  protected:
   /** \brief The number of neighbors used for covariances computation.
    * default: 20
@@ -350,14 +363,18 @@ class MultithreadedGeneralizedIterativeClosestPoint
 
   /// \brief optimization functor structure
   struct OptimizationFunctorWithIndices : public BFGSDummyFunctor<double, 6> {
-    OptimizationFunctorWithIndices(const MultithreadedGeneralizedIterativeClosestPoint* gicp)
+    OptimizationFunctorWithIndices(MultithreadedGeneralizedIterativeClosestPoint* gicp)
         : BFGSDummyFunctor<double, 6>(), gicp_(gicp) {}
     double operator()(const Vector6d& x);
     void df(const Vector6d& x, Vector6d& df);
     void fdf(const Vector6d& x, double& f, Vector6d& df);
 
-    const MultithreadedGeneralizedIterativeClosestPoint* gicp_;
+    MultithreadedGeneralizedIterativeClosestPoint* gicp_;
   };
+
+  std::vector<std::vector<double>> errors_per_iteration_;
+  std::vector<std::vector<int>> correspondences_per_iteration_;
+  std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>> transformation_per_iteration_;
 
   boost::function<void(const pcl::PointCloud<PointSource>& cloud_src, const std::vector<int>& src_indices,
                        const pcl::PointCloud<PointTarget>& cloud_tgt, const std::vector<int>& tgt_indices,
