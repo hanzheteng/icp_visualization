@@ -411,7 +411,7 @@ inline void pcl::MultithreadedGeneralizedIterativeClosestPoint<PointSource, Poin
   converged_ = false;
   double dist_threshold = corr_dist_threshold_ * corr_dist_threshold_;
 
-  pcl::transformPointCloud(output, output, guess);
+  pcl::transformPointCloudWithNormals(output, output, guess);
 
   double delta = 0.;
 
@@ -430,7 +430,7 @@ inline void pcl::MultithreadedGeneralizedIterativeClosestPoint<PointSource, Poin
       }
     }
 
-    std::vector<int> correspondences_for_vis(N);
+    std::vector<int> correspondences_for_vis(N, -1);
     const Eigen::Matrix3d R = transform_R.topLeftCorner<3, 3>();
     int failure = 0;
     auto start_lookups = std::chrono::steady_clock::now();
@@ -467,9 +467,8 @@ inline void pcl::MultithreadedGeneralizedIterativeClosestPoint<PointSource, Poin
 
         source_indices[i] = static_cast<int>(i);
         target_indices[i] = nn_indices[0];
+        correspondences_for_vis[i] = nn_indices[0]; // save data for visualization
       }
-      // save data for visualization
-      correspondences_for_vis[i] = nn_dists[0] < dist_threshold ? nn_indices[0] : -1;
     }
     correspondences_per_iteration_.push_back(correspondences_for_vis);
     auto end_lookups = std::chrono::steady_clock::now();
@@ -546,7 +545,7 @@ inline void pcl::MultithreadedGeneralizedIterativeClosestPoint<PointSource, Poin
   final_transformation_ = previous_transformation_ * guess;
 
   // Transform the point cloud
-  pcl::transformPointCloud(*input_, output, final_transformation_);
+  pcl::transformPointCloudWithNormals(*input_, output, final_transformation_);
 
   auto end_gicp = std::chrono::steady_clock::now();
   if (k_enable_timing_output_) {
