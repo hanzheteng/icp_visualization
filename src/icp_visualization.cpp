@@ -19,9 +19,9 @@ ICPVisualization::ICPVisualization(ros::NodeHandle& nh)
 
   // initialize utilities
   params_ = YAML::LoadFile(param_filename);
-  pub_source_cloud_ = nh_.advertise<sensor_msgs::PointCloud2>("/source_cloud", 5);
-  pub_target_cloud_ = nh_.advertise<sensor_msgs::PointCloud2>("/target_cloud", 5);
-  pub_correspondence_ = nh_.advertise<correspondence_rviz_plugin::PointCloudCorrespondence>("/correspondence", 5);
+  pub_source_cloud_ = nh_.advertise<sensor_msgs::PointCloud2>("/source_cloud", 5, true);
+  pub_target_cloud_ = nh_.advertise<sensor_msgs::PointCloud2>("/target_cloud", 5, true);
+  pub_correspondence_ = nh_.advertise<correspondence_rviz_plugin::PointCloudCorrespondence>("/correspondence", 5, true);
 
   // load point clouds
   if (pcl::io::loadPCDFile(src_filename, *source_cloud_) == 0)
