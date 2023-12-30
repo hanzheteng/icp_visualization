@@ -1,6 +1,6 @@
 <launch>
 
-    <arg name="config" default="outdoor"/>
+    <arg name="config" default="office"/>
 
     <node pkg="rviz" type="rviz" name="rviz" args="-d $(find icp_visualization)/rviz/$(arg config).rviz"/>
 

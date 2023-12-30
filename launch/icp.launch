@@ -1,7 +1,7 @@
 <launch>
 
-    <arg name="target" default="campus_01"/>
-    <arg name="source" default="campus_02"/>
+    <arg name="target" default="office_b10"/>
+    <arg name="source" default="office_b11"/>
 
     <param name="/param" value="$(find icp_visualization)/config/params.yaml"/>
     <param name="/source_cloud" value="$(find icp_visualization)/data/$(arg source).pcd"/>

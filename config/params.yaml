@@ -1,12 +1,12 @@
 # Parameters for ICP Visualization project
 icp_method: locus_gicp  # point2point, point2plane, fast_gicp, locus_gicp
-icp_max_corres_dist: 5.0  # meter
-icp_max_iterations: 20
+icp_max_corres_dist: 1.0  # meter
+icp_max_iterations: 1
 icp_translation_epsilon: 0.000001  # square meter
 icp_rotation_epsilon: 0.02  # degree
 
-downsample: false  # use false for outdoor sparse env., and true for indoor dense point clouds
+downsample: false
 downsample_resolution: 0.1  # meter
 
-estimate_normal: true
+estimate_normal: false
 normal_est_neighbors: 20  # number of knn neighbors

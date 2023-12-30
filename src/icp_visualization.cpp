@@ -158,6 +158,9 @@ Eigen::Matrix4d ICPVisualization::Point2PointICP(const PointCloudPtr& source, co
     for (int i = 0; i < cloud_size; ++i) {
       source_trans->points[i].intensity = 0;
     }
+    for (int i = 0; i < indices_size; ++i) {
+      source_trans->points[indices_src[i]].intensity = (cloud_src.col(i) - cloud_tgt.col(i)).norm();
+    }
     correspondence_msg.index_source = indices_src;
     correspondence_msg.index_target = indices_tgt;
     pcl::toROSMsg(*source_trans, cloud_source);
@@ -311,7 +314,6 @@ Eigen::Matrix4d ICPVisualization::FastGICP(const PointCloudPtr& source, const Po
   gicp.setMaximumIterations(params_["icp_max_iterations"].as<int>());
   gicp.setMaxCorrespondenceDistance(params_["icp_max_corres_dist"].as<float>());
   gicp.setTransformationEpsilon(params_["icp_translation_epsilon"].as<float>());
-  // gicp.setEuclideanFitnessEpsilon(params_["Euclidean_fitness_epsilon"].as<float>());
   gicp.setCorrespondenceRandomness(params_["normal_est_neighbors"].as<int>());
   gicp.setNumThreads(1);
   gicp.setInputSource(source);
@@ -324,7 +326,7 @@ Eigen::Matrix4d ICPVisualization::FastGICP(const PointCloudPtr& source, const Po
   gicp.getDataPerIteration(errors_per_iter, correspondences_per_iter, transformation_per_iter);
   PublishVisualization(source, target, errors_per_iter, correspondences_per_iter, transformation_per_iter);
 
-  return gicp.getFinalTransformation().cast<double>();;
+  return gicp.getFinalTransformation().cast<double>();
 }
 
 Eigen::Matrix4d ICPVisualization::LocusGICP(const PointCloudPtr& source, const PointCloudPtr& target) {
@@ -333,7 +335,6 @@ Eigen::Matrix4d ICPVisualization::LocusGICP(const PointCloudPtr& source, const P
   gicp.setMaximumIterations(params_["icp_max_iterations"].as<int>());
   gicp.setMaxCorrespondenceDistance(params_["icp_max_corres_dist"].as<float>());
   gicp.setTransformationEpsilon(params_["icp_translation_epsilon"].as<float>());
-  // gicp.setEuclideanFitnessEpsilon(params_["Euclidean_fitness_epsilon"].as<float>());
   gicp.setCorrespondenceRandomness(params_["normal_est_neighbors"].as<int>());
   gicp.setNumThreads(1);
   gicp.enableTimingOutput(false);
@@ -349,7 +350,7 @@ Eigen::Matrix4d ICPVisualization::LocusGICP(const PointCloudPtr& source, const P
   gicp.getDataPerIteration(errors_per_iter, correspondences_per_iter, transformation_per_iter);
   PublishVisualization(source, target, errors_per_iter, correspondences_per_iter, transformation_per_iter);
 
-  return gicp.getFinalTransformation().cast<double>();;
+  return gicp.getFinalTransformation().cast<double>();
 }
 
 void ICPVisualization::PublishVisualization(const PointCloudPtr& source, const PointCloudPtr& target, 
@@ -358,6 +359,7 @@ void ICPVisualization::PublishVisualization(const PointCloudPtr& source, const P
                                             std::vector<Eigen::Matrix4d, Eigen::aligned_allocator<Eigen::Matrix4d>>& transformation_per_iter) {
   int nr_iterations = transformation_per_iter.size();
   pcl::PointCloud<PointT>::Ptr source_trans(new pcl::PointCloud<PointT>);
+  pcl::copyPointCloud(*source, *source_trans);
   ros::Rate rate(1);
 
   correspondence_rviz_plugin::PointCloudCorrespondence correspondence_msg;
@@ -369,8 +371,6 @@ void ICPVisualization::PublishVisualization(const PointCloudPtr& source, const P
   correspondence_msg.header.frame_id = "map";
 
   for (int t = 0; t < nr_iterations; ++t) {
-    pcl::transformPointCloud<PointT>(*source, *source_trans, transformation_per_iter[t]);
-
     for (int i = 0; i < source_trans->size(); ++i) {
       source_trans->points[i].intensity = errors_per_iter[t][i];
     }
@@ -395,6 +395,8 @@ void ICPVisualization::PublishVisualization(const PointCloudPtr& source, const P
     std::cout << "publishing iteration t = " << t << std::endl;
     if (!ros::ok()) break;
     rate.sleep();
+
+    pcl::transformPointCloud<PointT>(*source, *source_trans, transformation_per_iter[t]);
   }
 }
 
