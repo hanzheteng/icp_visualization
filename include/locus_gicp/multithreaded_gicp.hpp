@@ -360,7 +360,7 @@ pcl::MultithreadedGeneralizedIterativeClosestPoint<PointSource, PointTarget>::Op
     Eigen::Vector3d temp(gicp_->mahalanobis((*gicp_->tmp_idx_src_)[i]) * res);
     // Increment total error
     f += double(res.transpose() * temp);
-    errors_for_vis[(*gicp_->tmp_idx_src_)[i]] = double(res.transpose() * temp) / double(m);  // save for visualization
+    errors_for_vis[(*gicp_->tmp_idx_src_)[i]] = double(res.transpose() * temp);  // save for visualization
     // Increment translation gradient
     // g.head<3> ()+= 2*M*res/num_matches (we postpone 2/num_matches after the
     // loop closes)
